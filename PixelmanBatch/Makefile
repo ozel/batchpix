@@ -1,6 +1,6 @@
 SHELL = /bin/bash
 
-PIXELMAN_INSTALL:=/Applications/Pixelman
+PIXELMAN_INSTALL:=/home/medialab/pixelman
 # if not defined in the env take PWD
 ifndef PIXELMAN_INSTALL
 	PIXELMAN_INSTALL:=$(PWD)
@@ -26,7 +26,7 @@ frameScan.o: frameScan.cpp
 	g++ -Wall -g3 -c frameScan.cpp $(CXXFLAGS)
 
 batchpixel: batchpixel.o initbatch.o
-	g++ -g3 -m64 batchpixel.o initbatch.o -L$(PIXELMAN_INSTALL) -lmpxlicmgr -lmpxmanager -lmpxctrl -L$(PIXELMAN_HWLIBS) -lmpxusb  -ldl -o batchpixel.exe
+	g++ -g3 -m64 batchpixel.o initbatch.o -L$(PIXELMAN_INSTALL) -lrt -lmpxlicmgr -lmpxmanager -lmpxctrl -L$(PIXELMAN_HWLIBS) -lmpxusb  -ldl -o batchpixel.exe
 	cp batchpixel.exe $(PIXELMAN_INSTALL)/
 
 batchpixel.o: batchpixel.cpp 
