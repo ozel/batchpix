@@ -118,8 +118,8 @@ int main(int argc, char ** argv) {
 	int vset_index = 9; //MXR lite: 7;   	//mx-10: 9;
 	int vread_index = 10; //MXR lite: 10; 	//mx-10: 10;
 	int adcsense_index = 30; //MXR lite: 30 -> ignore; //mx-10:  11;	
-	int ndacs = __ndacs_medipixMXR;
-	//int ndacs = __ndacs_timepix;
+	//int ndacs = __ndacs_medipixMXR;
+	int ndacs = __ndacs_timepix;
 	
 	//add signal to pause acquisition loop
 	(void) signal(SIGUSR1, handle_sigusr1);
@@ -257,94 +257,98 @@ int main(int argc, char ** argv) {
 	
 	//int datax;
 
-	int * datasize = new(nothrow) int();
-	if (datasize == NULL) {
-			cout << "could not allocate memory for datasize" << endl;
-	}
 	
 	// All information about the device
 	int * hardw_info_count = new int();
 
 	control = mpxCtrlGetHwInfoCount(devId, hardw_info_count);
+	if(control != 0) { // something went wrong here
+		cout << "Error:" << control << endl;
+		return 1;
+	}
 	int hw_counts = *hardw_info_count;
 
 	cout << "-- HwInfo ------------------------------ " << endl;
 	cout << "Hardware info items = " << hw_counts << " | (type, datasize, count)"<< endl;
- 
+
+
 	// dummy reading
 	for ( int index = 0 ; index < hw_counts ; index++ ) {
 		HwInfoItem  infoIdummy;
 		double tempdoubledummy;
+		int * datasize = new int();
 		infoIdummy.data = &tempdoubledummy;
 		control = mpxCtrlGetHwInfoItem ( devId, index, &infoIdummy, datasize );
-		usleep(10000);
+		usleep(1000);
+		delete datasize;
 	}
 
+
+
 	for ( int index = 0 ; index < hw_counts ; index++ ) {
-		
+
 		double tempdouble;
+		//cout << "sizeof(tempdouble)" << sizeof(tempdouble) << endl;
+		HwInfoItem  infoI;
+		int * datasize = new int();
 
-		HwInfoItem  * infoI = new HwInfoItem();
 		// at least one reference must be stablished here
-		//double * tempdouble = new double;
-		infoI->data = &tempdouble;
+		infoI.data = &tempdouble;
 
-		control = mpxCtrlGetHwInfoItem ( devId, index, infoI, datasize );
+		control = mpxCtrlGetHwInfoItem ( devId, index, &infoI, datasize );
 		// count = array size (number of values).  Each entry with size (*datasize)
 		cout << "   " << index << ") "
-				<< infoI->name << " (" << nameofType[infoI->type] << "," << *datasize << "," << infoI->count << ") | ";
+				<< infoI.name << " (" << nameofType[infoI.type] << "," << *datasize << "," << infoI.count << ") | ";
 
 
-
-
-		if ( infoI->type == TYPE_BOOL ) {
+		if ( infoI.type == TYPE_BOOL ) {
 			bool tempbool;
 			// Establish the reference
-			infoI->data = &tempbool;
+			infoI.data = &tempbool;
 			// Read again
-			control = mpxCtrlGetHwInfoItem ( devId, index, infoI, datasize );
+			control = mpxCtrlGetHwInfoItem ( devId, index, &infoI, datasize );
 			// cout
 			if(tempbool) cout << "TRUE";
 			else cout << "FALSE";
 		}
 
 
-		if ( infoI->type == TYPE_CHAR ) {
+		if ( infoI.type == TYPE_CHAR ) {
 
-			signed char * temp = new signed char[infoI->count * (*datasize)];
+			signed char * temp = new signed char[infoI.count * (*datasize)];
 			// Establish the reference
-			infoI->data = temp;
+			infoI.data = temp;
 			// Read again
-			control = mpxCtrlGetHwInfoItem ( devId, index, infoI, datasize );
+			control = mpxCtrlGetHwInfoItem ( devId, index, &infoI, datasize );
 			// cout
-			for(u32 i = 0 ; i < infoI->count * (*datasize) ; i++) {
+			for(u32 i = 0 ; i < infoI.count * (*datasize) ; i++) {
 				if( temp[i] == '\0' || temp[i] == 0xa || temp[i] == 0xd ) break;
 				cout << temp[i];
 			}
-
+			infoI.data = NULL;
 			delete [] temp;
 		}
 
-		if ( infoI->type == TYPE_UCHAR || infoI->type == TYPE_BYTE ) {
+		if ( infoI.type == TYPE_UCHAR || infoI.type == TYPE_BYTE ) {
 			// to be treated as 8 bits integer WARNING !
-			unsigned char * temp = new unsigned char[infoI->count * (*datasize)];
+			unsigned char * temp = new unsigned char[infoI.count * (*datasize)];
 			// Establish the reference
-			infoI->data = temp;
+			infoI.data = temp;
 			// Read again
-			control = mpxCtrlGetHwInfoItem ( devId, index, infoI, datasize );
+			control = mpxCtrlGetHwInfoItem ( devId, index, &infoI, datasize );
 			// cout
-			for(u32 i = 0 ; i < infoI->count ; i++) {
+			for(u32 i = 0 ; i < infoI.count ; i++) {
 				cout << temp[i];  // FIXME ! review this case
 			}
 
 			delete [] temp;
 		}
 
-		if ( infoI->type == TYPE_DOUBLE ) {
+		if ( infoI.type == TYPE_DOUBLE ) {
 
-			double * tempd = new double[infoI->count];
+			double * tempd = new double[infoI.count];
 			// Establish the reference
-			infoI->data = tempd;
+			infoI.data = tempd;
 
 			// Special cases which involve sensing.  Get an average.
 			if ( index == vread_index ) { //was 9 REM
@@ -353,7 +357,7 @@ int main(int argc, char ** argv) {
 				double voltage_mean_read = 0.;
 				int voltage_nreads = __sensing_nreads;
 				for ( int vii = 0; vii < __sensing_nreads ; vii++ ) {
-					mpxCtrlGetHwInfoItem(devId, index, infoI, datasize);
+					mpxCtrlGetHwInfoItem(devId, index, &infoI, datasize);
 					//cout << "read voltage = " << tempd[0] << endl;
 					voltage_mean_read += tempd[0];
 					usleep(50000);
@@ -366,9 +370,9 @@ int main(int argc, char ** argv) {
 
 				cout << "[sampling " << __sensing_nreads << " times] ";
 				for ( int vii = 0; vii < __sensing_nreads ; vii++ ) {
-					mpxCtrlGetHwInfoItem(devId, index, infoI, datasize);
+					mpxCtrlGetHwInfoItem(devId, index, &infoI, datasize);
 					// put the values in a vector
-					for (u32 i = 0 ; i < infoI->count ; i++) {
+					for (u32 i = 0 ; i < infoI.count ; i++) {
 						if ( vii == 0 ) { // the first sampling
 							adcsenseV.push_back( tempd[i] );
 						} else {
@@ -380,40 +384,39 @@ int main(int argc, char ** argv) {
 					usleep(50000);
 				}
 				// Get mean and print
-				for (u32 i = 0 ; i < infoI->count ; i++) {
+				for (u32 i = 0 ; i < infoI.count ; i++) {
 					adcsenseV[i] /= double(__sensing_nreads);
 					cout << adcsenseV[i];
-					if(i != infoI->count - 1) cout << ", ";
+					if(i != infoI.count - 1) cout << ", ";
 				}
 
 			} else {
 
 				// Read again
-				control = mpxCtrlGetHwInfoItem ( devId, index, infoI, datasize );
+				control = mpxCtrlGetHwInfoItem ( devId, index, &infoI, datasize );
 				// cout
-				for (u32 i = 0 ; i < infoI->count ; i++) {
+				for (u32 i = 0 ; i < infoI.count ; i++) {
 					cout << tempd[i];
-					if(i != infoI->count - 1) cout << ", ";
+					if(i != infoI.count - 1) cout << ", ";
 				}
 			}
 		}
 
-		if ( infoI->type == TYPE_U16 ) {
+		if ( infoI.type == TYPE_U16 ) {
 			unsigned short * tempuns = new unsigned short;
 			// Establish the reference
-			infoI->data = tempuns;
+			infoI.data = tempuns;
 			// Read again
-			control = mpxCtrlGetHwInfoItem ( devId, index, infoI, datasize );
+			control = mpxCtrlGetHwInfoItem ( devId, index, &infoI, datasize );
 			// cout
 			cout << *tempuns;
 		}
 
 		cout << endl;
 
-		delete infoI;
-		//delete [] datasize;
-		usleep(100000);
-		//usleep(1000);
+		//usleep(100000);
+		usleep(1000);
+		//if(datasize) delete datasize; doesn't work, program crashes, no idea why!
 	}
 	
 	// Set bias voltage
