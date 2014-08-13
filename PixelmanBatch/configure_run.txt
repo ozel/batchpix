@@ -1,0 +1,8 @@
+V | 90
+THL | 0-524:10
+THLCoarse | 7
+IKRUM | 3
+AcqCounts | 2
+AcqTime | 0.06
+BPConfig |/home/idarraga/storage/I07_W0097/config/bpc_Medipix40THL.bpc
+Dataset |dataset1
