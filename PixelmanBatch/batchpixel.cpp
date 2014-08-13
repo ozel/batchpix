@@ -540,6 +540,9 @@ int main(int argc, char ** argv) {
 									cout << "[WARNING] Problems at : " << filename << " | error:" << control << endl;
 									//return 0;
 								}
+							} else {
+								//insert sleep to prevent spinning
+								sleep(1);
 							}
 						} 					
 					} else {
