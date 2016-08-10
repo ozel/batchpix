@@ -1,0 +1,8 @@
+V | 40
+THL | 434
+THLCoarse | 7
+IKRUM | 1
+AcqCounts | 0
+AcqTime | 0.15
+BPConfig |tpxlite_6mask.bpc
+Dataset |/tmp/frame_
