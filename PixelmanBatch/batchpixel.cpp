@@ -37,8 +37,22 @@ int endless_acq;
 int toggle_acq = 1; //default is run the acq. loop
 int acqcount = 0;
 
+// Find devices
+DEVID devId;
+
 void handle_sigusr1(int sig){
-	if(toggle_acq == 0) acqcount = 0; //reset counter
+	//int control = -1;
+	if(toggle_acq == 0) {
+		//stop->start
+		acqcount = 0; //reset counter
+		//mpxCtrlTrigger(devId,TRIGGER_ACQSTART);
+		cout << "Started acquisition" << endl;
+	} else {
+		//start->stop
+		//mpxCtrlTrigger(devId,TRIGGER_ACQSTOP);
+		//HwStopAcquisition(devId);
+		cout << "Stopped acquisition" << endl;
+	}
 	toggle_acq = !toggle_acq;
 }
 
@@ -115,7 +129,7 @@ int main(int argc, char ** argv) {
 	//device specific settings
 
 	// indexes to set and read HV bias and ADCs, depend on fitpix hardware variant!
-	int vset_index = 9; //MXR lite: 7;   	//mx-10: 9;
+	int vset_index = 7; //MXR lite: 7;   	//mx-10: 9;
 	int vread_index = 10; //MXR lite: 10; 	//mx-10: 10;
 	int adcsense_index = 30; //MXR lite: 30 -> ignore; //mx-10:  11;	
 	//int ndacs = __ndacs_medipixMXR;
@@ -203,6 +217,7 @@ int main(int argc, char ** argv) {
 	// Get and Set Daqs
 	int chipnumber = 0;
 	DACTYPE dacVals[ndacs];
+	DACTYPE dacVals_new[ndacs];
 	double dacValsAnalogue[ndacs];
 
 	// Get DACs
@@ -231,10 +246,10 @@ int main(int argc, char ** argv) {
 	DumpDACs(dacVals, dacValsAnalogueSampling);
 
 
-	//dacVals[TPX_IKRUM] = ikrum_setting;
-	//control = mpxCtrlSetDACs(devId, dacVals, 14, chipnumber);
-	//control = mpxCtrlGetDACs(devId, dacVals_new, 14, chipnumber);
-	//cout << "IKRUM set and verification = " << dacVals_new[TPX_IKRUM] << endl;
+	dacVals[TPX_IKRUM] = ikrum_setting;
+	control = mpxCtrlSetDACs(devId, dacVals, ndacs, chipnumber);
+	control = mpxCtrlGetDACs(devId, dacVals_new, ndacs, chipnumber);
+	cout << "IKRUM set and verification = " << dacVals_new[TPX_IKRUM] << endl;
 
 	// Settings //////////////////////////////////////////////////////////
 	// Set bias voltage
@@ -243,7 +258,7 @@ int main(int argc, char ** argv) {
 	data = (byte * ) (&voltage);
 	//REM
 	control = mpxCtrlSetHwInfoItem(devId, vset_index, data, sizeof(double));	 // 8 voltage
-	cout << "Set voltage OK " << " | ret : " << control << endl;
+	cout << "Set voltage " << voltage << "V" << " | ret : " << control << endl;
 	// After a voltage set one must wait for the circuit to stabilize
 	sleep(1);
 
@@ -429,8 +444,7 @@ int main(int argc, char ** argv) {
 	ItemInfo data1;
 	int datar_size = sizeof(double); //8;
 	double voltage_back;
-	//DACTYPE dacVals_new[__ndacs_timepix];
-	DACTYPE dacVals_new[ndacs];
+	//DACTYPE dacVals_new[ndacs];
 	int all_loopsCounter = 0;
 
 	for ( int V_itr = minV ; V_itr <= maxV ; V_itr += stepV ) {
@@ -471,14 +485,14 @@ int main(int argc, char ** argv) {
 			/////////////////////////////////////////////////////////////////////////////////////
 			// TPX_THLFINE
 			control = mpxCtrlGetDACs(devId, dacVals, ndacs, chipnumber);
-			//cout << "THLFINE read = " << dacVals[TPX_THLFINE] << endl;
+			cout << "THLFINE read = " << dacVals[TPX_THLFINE] << endl;
 
 			//REM dacVals[TPX_THLFINE] = thl_setting;
 			dacVals[MXR_THLFINE] = thl_setting;
 			control = mpxCtrlSetDACs(devId, dacVals, ndacs, chipnumber);
 
 			control = mpxCtrlGetDACs(devId, dacVals_new, ndacs, chipnumber);
-			//cout << "THLFINE set and verification = " << dacVals_new[TPX_THLFINE] << endl;
+			cout << "THLFINE set and verification = " << dacVals_new[TPX_THLFINE] << endl;
 			/////////////////////////////////////////////////////////////////////////////////////
 
 			for ( int THLcoarse_itr = thlcoarse_min; THLcoarse_itr <= thlcoarse_max ; THLcoarse_itr += thlcoarse_step ) {
@@ -538,7 +552,9 @@ int main(int argc, char ** argv) {
 						while(endless_acq){
 							if (toggle_acq) {
 								cout << "Acquisition Nr." << ++acqcount << endl; 
-								control = mpxCtrlPerformFrameAcq(devId, 1, acqTime_setting, FSAVE_ASCII |  FSAVE_SPARSEXY, filename.c_str());
+								//control = mpxCtrlPerformFrameAcq(devId, 100, acqTime_setting, FSAVE_ASCII |  FSAVE_SPARSEXY | FSAVE_APPEND | FSAVE_NODESCFILE, filename.c_str());
+								control = mpxCtrlPerformFrameAcq(devId, 1, acqTime_setting, FSAVE_ASCII |  FSAVE_SPARSEXY | FSAVE_NODESCFILE, filename.c_str());
+								//usleep(400*1000);
 								if ( control != 0 ) {
 									cout << "[WARNING] Problems at : " << filename << " | error:" << control << endl;
 									//return 0;
@@ -604,8 +620,8 @@ AllParameters * LoadParameterList() {
 void DumpDACs(DACTYPE * dacs, vector<double> dacsAnalogue) {
 	cout << "-- DACs -------------------------------- " << endl;
 	for ( int i = 0 ; i < ndacs ; i++ ) {
-		//cout << "  " << nameofTPXDACs[i] << " = " << dacs[i] << "\t| " << dacsAnalogue[i] << endl; 
-		cout << "  " << nameofMXRDACs[i] << " = " << dacs[i] << "\t| " << dacsAnalogue[i] << endl;
+		cout << "  " << nameofTPXDACs[i] << " = " << dacs[i] << "\t| " << dacsAnalogue[i] << endl; 
+		//cout << "  " << nameofMXRDACs[i] << " = " << dacs[i] << "\t| " << dacsAnalogue[i] << endl;
 	}
 	cout << "---------------------------------------- " << endl;
 
